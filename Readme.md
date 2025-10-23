@@ -27,9 +27,8 @@ pyinstaller --onefile --windowed "手机号归属地查询工具.spec"
 
 
 ### 关键说明
-- **为什么会出现这个错误**：PyInstaller有时无法自动检测到所有动态导入的库（尤其是Flask这类框架），需要手动指定
 - **hiddenimports的作用**：强制PyInstaller将这些库包含到最终的可执行文件中
 - **验证依赖**：可以通过`pip list`确认`flask`、`flask-cors`、`requests`确实已安装在当前环境中
 
 
-按照以上步骤重新打包后，生成的可执行文件会包含所有必要的依赖，就不会再出现`ModuleNotFoundError`了。如果还有问题，可以检查.spec文件中的`hiddenimports`是否遗漏了其他库，或尝试在打包前创建一个干净的虚拟环境重新安装依赖。
+按照以上步骤重新打包后，生成的可执行文件会包含所有必要的依赖，如果有问题，可以检查.spec文件中的`hiddenimports`是否遗漏了其他库，或尝试在打包前创建一个干净的虚拟环境重新安装依赖。
