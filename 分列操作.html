@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电话号码处理工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#6366F1',
+                        neutral: '#64748B',
+                        light: '#F1F5F9',
+                        dark: '#1E293B'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .shadow-soft {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .transition-custom {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-dark">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-phone-square text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-primary">电话号码处理工具</h1>
+            </div>
+            <div class="text-sm text-neutral hidden md:block">
+                轻松处理表格中的电话号码
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 介绍卡片 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 mb-8 transform hover:scale-[1.01] transition-custom">
+            <h2 class="text-xl font-semibold mb-3 flex items-center">
+                <i class="fa fa-info-circle text-accent mr-2"></i>功能介绍
+            </h2>
+            <p class="text-neutral mb-4">
+                本工具可以帮助您处理表格中的电话号码：自动提取数字，11位电话号码保持不变；大于11位的号码，
+                如果包含两个11位号码，则拆分为两行，其他列内容保持一致。
+            </p>
+            <div class="flex flex-wrap gap-2 text-sm">
+                <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full"><i class="fa fa-file-excel-o mr-1"></i>支持Excel</span>
+                <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full"><i class="fa fa-file-text-o mr-1"></i>支持CSV</span>
+                <span class="bg-purple-50 text-purple-700 px-3 py-1 rounded-full"><i class="fa fa-magic mr-1"></i>智能提取数字</span>
+                <span class="bg-purple-50 text-purple-700 px-3 py-1 rounded-full"><i class="fa fa-desktop mr-1"></i>本地处理</span>
+            </div>
+        </div>
+
+        <!-- 步骤指示器 -->
+        <div class="flex justify-between items-center mb-8 relative">
+            <div class="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
+            <div class="absolute top-1/2 left-0 h-1 bg-primary -translate-y-1/2 z-10 transition-all duration-500" id="progress-bar" style="width: 0%"></div>
+
+            <div class="flex flex-col items-center relative z-20" id="step-1-indicator">
+                <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center mb-2">
+                    <i class="fa fa-upload"></i>
+                </div>
+                <span class="text-sm font-medium">上传文件</span>
+            </div>
+
+            <div class="flex flex-col items-center relative z-20" id="step-2-indicator">
+                <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center mb-2">
+                    <i class="fa fa-list"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-500">选择列</span>
+            </div>
+
+            <div class="flex flex-col items-center relative z-20" id="step-3-indicator">
+                <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center mb-2">
+                    <i class="fa fa-cogs"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-500">处理数据</span>
+            </div>
+
+            <div class="flex flex-col items-center relative z-20" id="step-4-indicator">
+                <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center mb-2">
+                    <i class="fa fa-download"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-500">下载结果</span>
+            </div>
+        </div>
+
+        <!-- 步骤内容区域 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 md:p-8 mb-8">
+            <!-- 步骤1：上传文件 -->
+            <div id="step-1" class="step-content">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-upload text-primary mr-2"></i>上传文件
+                </h2>
+
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-custom cursor-pointer" id="drop-area">
+                    <i class="fa fa-file-excel-o text-5xl text-gray-400 mb-4"></i>
+                    <p class="mb-2 text-lg">拖放Excel或CSV文件到此处</p>
+                    <p class="text-neutral mb-6">或点击选择文件</p>
+                    <label class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium cursor-pointer transition-custom inline-flex items-center">
+                        <i class="fa fa-folder-open mr-2"></i>选择文件
+                        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" class="hidden">
+                    </label>
+                    <p class="text-xs text-neutral mt-4">支持的格式：.xlsx, .xls, .csv</p>
+                </div>
+
+                <div id="file-info" class="hidden mt-6 p-4 bg-light rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fa fa-file-text-o text-primary mr-3 text-xl"></i>
+                            <div>
+                                <p id="file-name" class="font-medium"></p>
+                                <p id="file-size" class="text-sm text-neutral"></p>
+                            </div>
+                        </div>
+                        <button id="remove-file" class="text-red-500 hover:text-red-700 transition-custom">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-end">
+                    <button id="to-step-2" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium transition-custom disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        下一步 <i class="fa fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 步骤2：选择联系电话列 -->
+            <div id="step-2" class="step-content hidden">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-list text-primary mr-2"></i>选择联系电话列
+                </h2>
+
+                <p class="mb-6 text-neutral">请选择表格中包含联系电话的列：</p>
+
+                <div id="columns-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
+                    <!-- 列选项将在这里动态生成 -->
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button id="back-to-step-1" class="border border-gray-300 hover:bg-gray-50 text-dark px-6 py-3 rounded-lg font-medium transition-custom">
+                        <i class="fa fa-arrow-left mr-1"></i> 上一步
+                    </button>
+                    <button id="to-step-3" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium transition-custom disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        处理数据 <i class="fa fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 步骤3：处理数据 -->
+            <div id="step-3" class="step-content hidden">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-cogs text-primary mr-2"></i>处理数据
+                </h2>
+
+                <div id="processing" class="text-center py-10">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-lg">正在处理数据，请稍候...</p>
+                    <p class="text-neutral mt-2" id="processing-status">准备处理...</p>
+                </div>
+
+                <div id="processing-result" class="hidden">
+                    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fa fa-check-circle text-green-500 mt-1 mr-3 text-xl"></i>
+                            <div>
+                                <h3 class="font-semibold text-green-800">处理完成</h3>
+                                <p class="text-green-700 text-sm mt-1">
+                                    原始数据：<span id="original-count" class="font-medium"></span> 行<br>
+                                    处理后数据：<span id="processed-count" class="font-medium"></span> 行<br>
+                                    拆分电话号码：<span id="split-count" class="font-medium"></span> 处
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-3">处理结果预览</h3>
+                        <div class="overflow-x-auto max-h-80 border border-gray-200 rounded-lg">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr id="result-header">
+                                        <!-- 表头将动态生成 -->
+                                    </tr>
+                                </thead>
+                                <tbody id="result-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- 表格内容将动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-xs text-neutral mt-2 text-right">仅显示前10行数据</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button id="back-to-step-2" class="border border-gray-300 hover:bg-gray-50 text-dark px-6 py-3 rounded-lg font-medium transition-custom">
+                        <i class="fa fa-arrow-left mr-1"></i> 上一步
+                    </button>
+                    <button id="to-step-4" class="bg-secondary hover:bg-secondary/90 text-white px-6 py-3 rounded-lg font-medium transition-custom">
+                        下载结果 <i class="fa fa-download ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 步骤4：下载结果 -->
+            <div id="step-4" class="step-content hidden">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-download text-primary mr-2"></i>下载结果
+                </h2>
+
+                <div class="text-center py-8">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 text-secondary mb-6">
+                        <i class="fa fa-check text-4xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">处理完成！</h3>
+                    <p class="text-neutral mb-8 max-w-md mx-auto">您可以下载处理后的文件，或返回重新处理其他文件。</p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button id="download-result" class="bg-secondary hover:bg-secondary/90 text-white px-8 py-3 rounded-lg font-medium transition-custom inline-flex items-center justify-center">
+                            <i class="fa fa-download mr-2"></i> 下载处理后的文件
+                        </button>
+                        <button id="restart" class="border border-gray-300 hover:bg-gray-50 text-dark px-8 py-3 rounded-lg font-medium transition-custom inline-flex items-center justify-center">
+                            <i class="fa fa-refresh mr-2"></i> 重新开始
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-6">
+        <div class="container mx-auto px-4 text-center text-neutral text-sm">
+            <p>电话号码处理工具-沐清风 &copy; 2025.10 | 本地运行，数据不会上传到服务器</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 全局变量
+        let workbook = null;
+        let worksheet = null;
+        let jsonData = [];
+        let originalData = [];
+        let processedData = [];
+        let phoneColumn = null;
+        let fileName = '';
+        let fileExtension = '';
+        let splitCount = 0;
+
+        // DOM 元素
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameEl = document.getElementById('file-name');
+        const fileSizeEl = document.getElementById('file-size');
+        const removeFileBtn = document.getElementById('remove-file');
+        const toStep2Btn = document.getElementById('to-step-2');
+        const backToStep1Btn = document.getElementById('back-to-step-1');
+        const columnsContainer = document.getElementById('columns-container');
+        const toStep3Btn = document.getElementById('to-step-3');
+        const backToStep2Btn = document.getElementById('back-to-step-2');
+        const processingStatus = document.getElementById('processing-status');
+        const processingResult = document.getElementById('processing-result');
+        const originalCountEl = document.getElementById('original-count');
+        const processedCountEl = document.getElementById('processed-count');
+        const splitCountEl = document.getElementById('split-count');
+        const resultHeader = document.getElementById('result-header');
+        const resultBody = document.getElementById('result-body');
+        const toStep4Btn = document.getElementById('to-step-4');
+        const downloadResultBtn = document.getElementById('download-result');
+        const restartBtn = document.getElementById('restart');
+        const progressBar = document.getElementById('progress-bar');
+
+        // 步骤指示器元素
+        const stepIndicators = [
+            document.getElementById('step-1-indicator'),
+            document.getElementById('step-2-indicator'),
+            document.getElementById('step-3-indicator'),
+            document.getElementById('step-4-indicator')
+        ];
+
+        // 步骤内容元素
+        const stepContents = [
+            document.getElementById('step-1'),
+            document.getElementById('step-2'),
+            document.getElementById('step-3'),
+            document.getElementById('step-4')
+        ];
+
+        // 初始化事件监听
+        function initEventListeners() {
+            // 文件上传相关
+            dropArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            dropArea.addEventListener('dragover', handleDragOver);
+            dropArea.addEventListener('drop', handleDrop);
+            removeFileBtn.addEventListener('click', removeFile);
+
+            // 步骤导航
+            toStep2Btn.addEventListener('click', () => goToStep(2));
+            backToStep1Btn.addEventListener('click', () => goToStep(1));
+            toStep3Btn.addEventListener('click', processData);
+            backToStep2Btn.addEventListener('click', () => goToStep(2));
+            toStep4Btn.addEventListener('click', () => goToStep(4));
+            downloadResultBtn.addEventListener('click', downloadResult);
+            restartBtn.addEventListener('click', restart);
+        }
+
+        // 处理文件选择
+        function handleFileSelect(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                processFile(file);
+            }
+        }
+
+        // 处理拖放
+        function handleDragOver(e) {
+            e.preventDefault();
+            dropArea.classList.add('border-primary');
+            dropArea.classList.add('bg-blue-50');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dropArea.classList.remove('border-primary');
+            dropArea.classList.remove('bg-blue-50');
+
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                processFile(file);
+            }
+        }
+
+        // 处理文件
+        function processFile(file) {
+            // 检查文件类型
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                alert('请上传Excel或CSV文件');
+                return;
+            }
+
+            // 显示文件信息
+            fileName = file.name.replace(/\.[^/.]+$/, "");
+            fileExtension = ext;
+            fileNameEl.textContent = file.name;
+            fileSizeEl.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('hidden');
+            toStep2Btn.disabled = false;
+
+            // 读取文件
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    workbook = XLSX.read(data, { type: 'array' });
+
+                    // 获取第一个工作表
+                    const firstSheetName = workbook.SheetNames[0];
+                    worksheet = workbook.Sheets[firstSheetName];
+
+                    // 转换为JSON
+                    jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    // 保存原始数据
+                    originalData = JSON.parse(JSON.stringify(jsonData));
+                } catch (error) {
+                    console.error('文件解析错误:', error);
+                    alert('文件解析错误，请尝试其他文件');
+                }
+            };
+
+            if (ext === 'csv') {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        // 移除文件
+        function removeFile() {
+            fileInput.value = '';
+            fileInfo.classList.add('hidden');
+            toStep2Btn.disabled = true;
+            workbook = null;
+            worksheet = null;
+            jsonData = [];
+            originalData = [];
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 切换到指定步骤
+        function goToStep(step) {
+            // 更新步骤指示器
+            stepIndicators.forEach((indicator, index) => {
+                const stepNum = index + 1;
+                const circle = indicator.querySelector('div');
+                const text = indicator.querySelector('span');
+
+                if (stepNum < step) {
+                    // 已完成的步骤
+                    circle.classList.remove('bg-gray-200', 'text-gray-500', 'bg-primary', 'text-white');
+                    circle.classList.add('bg-primary', 'text-white');
+                    text.classList.remove('text-gray-500');
+                } else if (stepNum === step) {
+                    // 当前步骤
+                    circle.classList.remove('bg-gray-200', 'text-gray-500', 'bg-primary', 'text-white');
+                    circle.classList.add('bg-primary', 'text-white');
+                    text.classList.remove('text-gray-500');
+                } else {
+                    // 未完成的步骤
+                    circle.classList.remove('bg-gray-200', 'text-gray-500', 'bg-primary', 'text-white');
+                    circle.classList.add('bg-gray-200', 'text-gray-500');
+                    text.classList.add('text-gray-500');
+                }
+            });
+
+            // 更新进度条
+            progressBar.style.width = `${(step - 1) * 33.33}%`;
+
+            // 显示当前步骤内容
+            stepContents.forEach((content, index) => {
+                if (index + 1 === step) {
+                    content.classList.remove('hidden');
+                    if (step === 2) {
+                        generateColumnOptions();
+                    }
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        // 生成列选项
+        function generateColumnOptions() {
+            columnsContainer.innerHTML = '';
+
+            if (jsonData.length === 0 || jsonData[0].length === 0) {
+                columnsContainer.innerHTML = '<p class="text-neutral col-span-full">无法读取文件中的列信息</p>';
+                return;
+            }
+
+            // 获取表头行
+            const headers = jsonData[0];
+
+            headers.forEach((header, index) => {
+                const columnOption = document.createElement('div');
+                columnOption.className = 'border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-primary hover:bg-blue-50 transition-custom flex items-center';
+                columnOption.innerHTML = `
+                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 mr-3 flex-shrink-0 column-checkbox"></div>
+                    <div>
+                        <p class="font-medium">${header || `列 ${index + 1}`}</p>
+                        <p class="text-xs text-neutral">列索引: ${index}</p>
+                    </div>
+                `;
+
+                columnOption.addEventListener('click', () => {
+                    // 清除其他选中状态
+                    document.querySelectorAll('.column-checkbox').forEach(checkbox => {
+                        checkbox.classList.remove('bg-primary', 'border-primary');
+                        checkbox.classList.add('border-gray-300');
+                    });
+
+                    // 设置当前选中状态
+                    const checkbox = columnOption.querySelector('.column-checkbox');
+                    checkbox.classList.remove('border-gray-300');
+                    checkbox.classList.add('bg-primary', 'border-primary');
+
+                    // 记录选中的列
+                    phoneColumn = index;
+                    toStep3Btn.disabled = false;
+                });
+
+                columnsContainer.appendChild(columnOption);
+            });
+        }
+
+        // 从字符串中提取所有数字
+        function extractNumbers(str) {
+            if (!str) return '';
+            // 提取所有数字字符
+            return str.replace(/[^0-9]/g, '');
+        }
+
+        // 处理数据
+        function processData() {
+            goToStep(3);
+            processingResult.classList.add('hidden');
+
+            // 重置处理结果
+            processedData = [];
+            splitCount = 0;
+
+            // 模拟处理进度
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 100) progress = 100;
+                processingStatus.textContent = `处理中... ${Math.floor(progress)}%`;
+
+                if (progress === 100) {
+                    clearInterval(interval);
+
+                    // 实际处理数据
+                    try {
+                        doProcessData();
+                        displayResult();
+                    } catch (error) {
+                        console.error('数据处理错误:', error);
+                        processingStatus.textContent = '处理出错，请重试';
+                    }
+                }
+            }, 300);
+        }
+
+        // 实际处理数据的逻辑
+        function doProcessData() {
+            if (jsonData.length === 0) return;
+
+            // 表头行
+            processedData.push(jsonData[0]);
+
+            // 处理数据行
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || row.length === 0) continue;
+
+                // 获取电话号码单元格内容并提取数字
+                const phoneData = row[phoneColumn] ? String(row[phoneColumn]) : '';
+                const numbersOnly = extractNumbers(phoneData); // 只保留数字
+
+                // 从纯数字中提取所有11位电话号码（以1开头）
+                const phonePattern = /1\d{10}/g;
+                const phones = numbersOnly.match(phonePattern) || [];
+
+                if (phones.length === 1) {
+                    // 只有一个电话号码，直接保留
+                    const newRow = [...row];
+                    newRow[phoneColumn] = phones[0]; // 只保存提取的电话号码
+                    processedData.push(newRow);
+                } else if (phones.length >= 2) {
+                    // 有多个电话号码，拆分为多行
+                    splitCount++;
+
+                    for (let j = 0; j < 2; j++) {  // 只处理前两个号码
+                        const newRow = [...row];
+                        newRow[phoneColumn] = phones[j]; // 只保存提取的电话号码
+
+                        // 处理姓名列（如果存在）
+                        if (row.length > 4) {  // 假设姓名在第4列（索引3）
+                            const name = String(row[3] || '');
+                            const splitNames = splitName(name, 2);
+                            newRow[3] = splitNames[j] || name;
+                        }
+
+                        processedData.push(newRow);
+                    }
+                } else {
+                    // 没有找到有效的电话号码，保留提取的数字
+                    const newRow = [...row];
+                    newRow[phoneColumn] = numbersOnly; // 保留提取的所有数字
+                    processedData.push(newRow);
+                }
+            }
+        }
+
+        // 拆分姓名
+        function splitName(name, numParts) {
+            if (numParts === 1 || !name) {
+                return [name];
+            }
+
+            // 处理包含换行符的姓名
+            if (name.includes('\n')) {
+                const parts = name.split('\n');
+                // 确保拆分后的部分数量与电话号码数量一致
+                if (parts.length === numParts) {
+                    return parts.map((part, i) => i < parts.length - 1 ? part + '\n' : part);
+                }
+            }
+
+            // 如果没有换行符或拆分数量不匹配，平均分配
+            const mid = Math.floor(name.length / numParts);
+            return [name.substring(0, mid) + (mid > 0 ? '\n' : ''), name.substring(mid)];
+        }
+
+        // 显示处理结果
+        function displayResult() {
+            originalCountEl.textContent = jsonData.length - 1;  // 减去表头行
+            processedCountEl.textContent = processedData.length - 1;  // 减去表头行
+            splitCountEl.textContent = splitCount;
+
+            // 生成表头
+            resultHeader.innerHTML = '';
+            if (processedData.length > 0) {
+                processedData[0].forEach(header => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                    th.textContent = header || '';
+                    resultHeader.appendChild(th);
+                });
+            }
+
+            // 生成表格内容（最多显示10行）
+            resultBody.innerHTML = '';
+            const displayRows = Math.min(10, processedData.length - 1);  // 减去表头行
+
+            for (let i = 1; i <= displayRows; i++) {
+                const row = processedData[i];
+                const tr = document.createElement('tr');
+                tr.className = i % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.className = 'px-4 py-3 whitespace-nowrap text-sm text-gray-500';
+                    td.textContent = cell !== undefined ? cell : '';
+                    tr.appendChild(td);
+                });
+
+                resultBody.appendChild(tr);
+            }
+
+            processingResult.classList.remove('hidden');
+        }
+
+        // 下载处理结果
+        function downloadResult() {
+            // 创建新的工作簿和工作表
+            const newWorkbook = XLSX.utils.book_new();
+            const newWorksheet = XLSX.utils.aoa_to_sheet(processedData);
+
+            // 将工作表添加到工作簿
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "处理结果");
+
+            // 生成文件名
+            const outputFileName = `${fileName}_processed.${fileExtension}`;
+
+            // 下载文件
+            XLSX.writeFile(newWorkbook, outputFileName);
+        }
+
+        // 重新开始
+        function restart() {
+            // 重置全局变量
+            workbook = null;
+            worksheet = null;
+            jsonData = [];
+            originalData = [];
+            processedData = [];
+            phoneColumn = null;
+            fileName = '';
+            fileExtension = '';
+            splitCount = 0;
+
+            // 重置UI
+            fileInput.value = '';
+            fileInfo.classList.add('hidden');
+            toStep2Btn.disabled = true;
+            columnsContainer.innerHTML = '';
+            toStep3Btn.disabled = true;
+
+            // 回到第一步
+            goToStep(1);
+        }
+
+        // 初始化应用
+        function init() {
+            initEventListeners();
+            goToStep(1);
+        }
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
